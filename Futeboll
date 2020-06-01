@@ -1,0 +1,111 @@
+Create database exFute
+go
+use exFute
+
+Create Table equipe(
+tim_cod int not null Primary Key,
+tim_nome varchar(50) not null,
+tim_sigl varchar(5) not null
+)
+
+INSERT INTO equipe values
+(1,'Barcelona','BAR'),
+(2,'Celta de Vigo','CEL'),
+(3,'M�laga','MAL'),
+(4,'Real Madrid','RMA')
+
+CREATE table jogos(
+codetim1 int not null,
+codetim2 int not null,
+golt1 int,
+golt2 int,
+data_hora varchar(100) not null,
+constraint pk_jogos Primary key (codetim1,codetim2,data_hora),
+foreign key (codetim1) references equipe(tim_cod),
+foreign key (codetim2) references equipe(tim_cod)
+)
+
+
+create table championato(
+codetim int not null primary key,
+jogos int,
+vitorias int ,
+empate int ,
+derrota int ,
+golspro int ,
+golscontra int ,
+foreign key (codetim) references equipe(tim_cod)
+)
+
+CREATE  TRIGGER t_colocequipe on equipe
+for insert
+as
+begin
+    INSERT into championato values ((Select tim_cod from inserted),0,0,0,0,0,0)
+end
+
+
+insert into jogos values(1,2,2,3,'22/04/2013 15:00')
+insert into jogos values(1,3,4,3,'29/04/2013 15:00')
+insert into jogos values(1,4,5,3,'06/05/2013 15:00')
+insert into jogos values(2,1,0,3,'25/04/2013 15:00')
+insert into jogos values(2,3,2,0,'02/04/2013 15:00')
+insert into jogos values(2,4,3,3,'09/05/2013 15:00')
+insert into jogos values(3,1,2,3,'12/05/2013 15:00')
+insert into jogos values(3,2,3,1,'15/05/2013 15:00')
+insert into jogos values(3,4,0,1,'18/05/2013 15:00')
+insert into jogos values(4,1,0,3,'23/05/2013 15:00')
+insert into jogos values(4,2,4,0,'27/05/2013 15:00')
+insert into jogos values(4,3,2,0,'31/05/2013 15:00')
+
+CREATE TRIGGER t_jogos on jogos
+for insert
+as
+begin
+    declare 
+			 @time1 int,
+			 @time2 int,
+			 @gols1 int,
+			 @gols2 int
+
+			select @time1 = codetim1,@time2 = codetim2 ,@gols1 = golt1,@gols2 =golt2 from inserted
+			UPDATE championato set golscontra = (golscontra + @gols2),golspro= (golspro + @gols1),jogos = (jogos+1) where codetim =@time1
+			UPDATE championato set golscontra = (golscontra + @gols2),golspro= (golspro + @gols1),jogos = (jogos+1) where codetim =@time2
+			if(@gols1 > @gols2)
+				begin
+					UPDATE championato set vitorias = (vitorias + 1) where codetim =@time1
+					UPDATE championato set derrota = (derrota + 1) where codetim =@time2
+				end
+			else
+			if(@gols2 > @gols1)
+				begin
+					UPDATE championato set empate = (empate + 1) where codetim =@time1
+					UPDATE championato set empate = (empate + 1) where codetim =@time2
+				end
+				else
+					begin
+							UPDATE championato set derrota = (derrota + 1) where codetim =@time1
+							UPDATE championato set vitorias = (vitorias + 1) where codetim =@time2
+					end
+end
+
+
+ create function fn_camto()
+returns @tabela table
+(
+	sigla_time char(3),
+	jogos int,
+	vitorias int,
+	empates int,
+	derrotas int,
+	golspro int,
+	golscontra int,
+	pontos int
+)
+as
+begin
+	insert @tabela(sigla_time, jogos, vitorias, empates, derrotas, golspro, golscontra)
+	select e.tim_sigl, c.jogos, c.vitorias, c.empate, c.derrota, c.golspro, c.golscontra from equipe e inner join championato c on c.codetim = e.tim_cod
+	update @tabela set pontos = (vitorias  * 3) + (empates)
+	return
+end
